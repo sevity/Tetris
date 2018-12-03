@@ -1,217 +1,198 @@
+//순서
+//1. cell하나 그려서 보여주기
+//2. block그려서 몇개 보여주기
+//3. 좌우 움직임 보여주기(cx,cy,dx,dy정의)
+//4. rotation 처리하기
+//5. 아래로 떨어지는거 타이머로 구현하기
+//6. world data정의하고 충돌감지시 다음도형 나오게 하고, 월드그려주기
+//7. 한줄 채웠을때 지워지는거 처리
+
 #include <SFML/Graphics.hpp>
 using namespace std;
+using namespace sf;
 
+int block[7][4][4] =
+{
+	1,0,0,0,
+	1,0,0,0,
+	1,0,0,0,
+	1,0,0,0,
 
-//int offset[7] = {}
-int blocks[7][4][4] = {
-    {
-    {1,0,0,0},
-    {1,1,0,0},
-    {0,1,0,0},
-    {0,0,0,0},
-    },
-    {
-    {0,1,0,0},
-    {1,1,0,0},
-    {1,0,0,0},
-    {0,0,0,0},
-    },
-    {
-    {1,0,0,0},
-    {1,0,0,0},
-    {1,0,0,0},
-    {1,0,0,0},
-    },
-    {
-    {1,1,0,0},
-    {1,1,0,0},
-    {0,0,0,0},
-    {0,0,0,0},
-    },
-    {
-    {1,0,0,0},
-    {1,1,0,0},
-    {1,0,0,0},
-    {0,0,0,0},
-    },
-    {
-    {1,0,0,0},
-    {1,0,0,0},
-    {1,1,0,0},
-    {0,0,0,0},
-    },
-    {
-    {0,1,0,0},
-    {0,1,0,0},
-    {1,1,0,0},
-    {0,0,0,0},
-    },
+	1,0,0,0,
+	1,1,0,0,
+	0,1,0,0,
+	0,0,0,0,
+
+	0,1,0,0,
+	1,1,0,0,
+	1,0,0,0,
+	0,0,0,0,
+
+	1,1,0,0,
+	1,1,0,0,
+	0,0,0,0,
+	0,0,0,0,
+
+	1,0,0,0,
+	1,1,0,0,
+	1,0,0,0,
+	0,0,0,0,
+
+	1,0,0,0,
+	1,0,0,0,
+	1,1,0,0,
+	0,0,0,0,
+
+	0,1,0,0,
+	0,1,0,0,
+	1,1,0,0,
+	0,0,0,0,
 };
-float block_size = 20;
+const int cell_size = 30;
 const int w_cnt = 10;
 const int h_cnt = 20;
-int data[h_cnt][w_cnt] = {0};
-
-int main()
+int world[h_cnt][w_cnt] = { 0 };
+int main(void)
 {
-    sf::Color color_map[] = {sf::Color(100,100,100,255), sf::Color::Green, sf::Color::Blue, sf::Color::Red, sf::Color::Yellow, sf::Color::White, sf::Color::Magenta, sf::Color::Cyan};
-    sf::RenderWindow window(sf::VideoMode(w_cnt * block_size, h_cnt * block_size), "Tetris");
-    sf::RectangleShape shape(sf::Vector2f(block_size, block_size));
-    shape.setFillColor(sf::Color::Green);
+	//define 7 block colors
+	sf::Color color_map[] = {
+		Color::Green, Color::Blue, Color::Red, Color::Yellow,
+		Color::White, Color::Magenta, Color::Cyan
+	};
 
-    bool rotate = false;
-    int dx=0;
-    int kind = 1;
-
-    sf::Clock clock;
-
-    int cx=4, cy=0;
-    auto check = [&]()
-    {
-        for(int i=0;i<4;i++)for(int j=0;j<4;j++)
-        {
-            if(blocks[kind][i][j]==0) continue;
-            if(j+cx<0||j+cx>=w_cnt||i+cy>=h_cnt) return false;
-            if(data[cy+i][cx+j]) return false;
-        }
-        return true;
-    };
-
-    int center_x[7] = {0};
-    int center_y[7] = {0};
-    for(int k=0;k<7;k++)for(int y=0;y<4;y++)for(int x=0;x<4;x++)if(blocks[k][y][x]==2) {center_x[k]=x;center_y[k]=y;}
-    while (window.isOpen())
-    {
-        auto delete_line = [&]()
-        {
-            vector<vector<int>> vv;
-            for(int y=0;y<h_cnt;y++)
-            {
-                vector<int> v;
-                int cnt = 0;
-                for(int x=0;x<w_cnt;x++)
-                {
-                    v.push_back(data[y][x]);
-                    if(data[y][x]) cnt++;
-                }
-                if(cnt<w_cnt) vv.push_back(v);
-            }
-            for(int y=0;y<h_cnt;y++)for(int x=0;x<w_cnt;x++)data[y][x]=0;
-            for(int y=h_cnt-1;y>=0;y--)
-            {
-                if(vv.empty()) break;
-                vector<int> v = vv.back();
-                vv.pop_back();
-                for(int x=0;x<w_cnt;x++)
-                    data[y][x]=v[x];
-            }
-        };
-        auto go_down = [&]()
-        {
-            cy++;
-            if(check()==false)
-            {
-                cy--;
-                for(int i=0;i<4;i++)for(int j=0;j<4;j++)if(blocks[kind][i][j])data[cy+i][cx+j]=kind+1;
-                delete_line();
-                cx=4,cy=0;
-                kind = rand()%7;
-                return true;
-            }
-            return false;
-        };
-        static float prev = clock.getElapsedTime().asSeconds();
-        if(clock.getElapsedTime().asSeconds() - prev >= 0.5)
-        {
-            prev = clock.getElapsedTime().asSeconds();
-            go_down();
-
-        }
-
-        sf::Event event;
-        while (window.pollEvent(event))
-        {
-            if (event.type == sf::Event::Closed)
-                window.close();
-            if (event.type == sf::Event::KeyPressed)
-            {
-                if(event.key.code == sf::Keyboard::Up) rotate = true;
-                else if(event.key.code == sf::Keyboard::Right)
-                {
-                    cx++;
-                    if(check()==false) cx--;
-                }
-                else if(event.key.code == sf::Keyboard::Left)
-                {
-                    cx--;
-                    if(check()==false) cx++;
-                }
-                else if(event.key.code == sf::Keyboard::Down)
-                {
-                    go_down();
-                }
-                else if(event.key.code == sf::Keyboard::Space)
-                {
-                    while(!go_down());
-                }
-
-            }
-            
-        }
-        auto Rotate = [&]()
-        {
-            int len = 0;
-            for(int i=0;i<4;i++)for(int j=0;j<4;j++)
-                if(blocks[kind][i][j]) len = max(max(i,j)+1,len);
-            printf("len:%d\n", len);
-
-            int d[4][4]={0};
-            for(int y=0;y<len;y++)for(int x=0;x<len;x++)
-                if(blocks[kind][y][x]) d[len-1-x][y]=1;
-            for(int y=0;y<4;y++)for(int x=0;x<4;x++)
-                blocks[kind][y][x]=d[y][x];
-        };
-
-        if (rotate)
-        {
-            Rotate();
-            if(!check()) {Rotate(), Rotate(), Rotate();};
-            rotate=false;
-        }
+	int kind;
+	int cx, cy;
+	auto new_block = [&]()
+	{
+		kind = rand() % 7;
+		cx = w_cnt / 2, cy = 0;//current x, y		
+	};
+	new_block();
+	RectangleShape cell(Vector2f(cell_size, cell_size));
 
 
+	sf::RenderWindow window(sf::VideoMode(w_cnt * cell_size, h_cnt * cell_size), "Tetris");
 
-        window.clear(color_map[0]);
-        auto draw_map = [&]()
-        {
-            for(int y=0;y<h_cnt;y++)for(int x=0;x<w_cnt;x++)
-            {
-                shape.setFillColor(color_map[data[y][x]]);
-                shape.setPosition(sf::Vector2f((x)*block_size, (y)*block_size));
-                window.draw(shape);
-            }
+	auto check_block = [&]()
+	{
+		for (int y = 0; y < 4; y++)for (int x = 0; x < 4; x++)
+		{
+			if (block[kind][y][x] == 0) continue;
+			if (x + cx < 0 || x + cx >= w_cnt || y + cy >= h_cnt) return false;
+			if (world[cy + y][cx + x]) return false;
+		}
+		return true;
+	};
 
-        };
-        auto draw_shape = [&]()
-        {
-            shape.setFillColor(color_map[kind+1]);
-            for(int i=0;i<4;i++)
-            {
-                for(int j=0;j<4;j++)
-                {
-                    if(blocks[kind][i][j])
-                    {
-                        shape.setPosition(sf::Vector2f((cx+j)*block_size, (cy+i)*block_size));
-                        window.draw(shape);
-                    }
-                }
-            }
-        };
+	auto rotate = [&]()
+	{
+		int len = 0;
+		for (int y = 0; y < 4; y++)for (int x = 0; x < 4; x++)
+			if (block[kind][y][x]) len = max(max(x, y) + 1, len);
 
-        draw_map();
-        draw_shape();
-        window.display();
-    }
+		int d[4][4] = { 0 };
+		for (int y = 0; y < len; y++)for (int x = 0; x < len; x++)
+			if (block[kind][y][x]) d[len - 1 - x][y] = 1;
+		for (int y = 0; y < 4; y++)for (int x = 0; x < 4; x++)
+			block[kind][y][x] = d[y][x];
+	};
+	Clock clock;
+	while (window.isOpen())
+	{
+		auto clear_line = [&]()
+		{
+			int to = h_cnt - 1;
+			for (int from = h_cnt - 1; from >= 0; from--)
+			{
+				int cnt = 0;
+				for (int x = 0; x < w_cnt; x++)if (world[from][x]) cnt++;
+				if (cnt < w_cnt)
+				{
+					for (int x = 0; x < w_cnt; x++)world[to][x] = world[from][x];
+					to--;
+				}
+			}
+		};
+		auto go_down = [&]()
+		{
+			cy++;
+			if (check_block() == false)
+			{
+				cy--;
+				for (int y = 0; y < 4; y++)for (int x = 0; x < 4; x++)
+					if (block[kind][y][x])
+					{
+						world[cy + y][cx + x] = kind + 1;//+1 for avoiding 0
+					}
+				clear_line();
+				new_block();
+				return false;
+			}
+			return true;
+		};
 
-    return 0;
+		static float prev = clock.getElapsedTime().asSeconds();
+		if (clock.getElapsedTime().asSeconds() - prev >= 0.5)
+		{
+			prev = clock.getElapsedTime().asSeconds();
+			go_down();
+		}
+		sf::Event e;
+		while (window.pollEvent(e))
+		{
+			if (e.type == sf::Event::Closed) window.close();
+			if (e.type == Event::KeyPressed)
+			{
+				if (e.key.code == Keyboard::Left)
+				{
+					cx--;
+					if (check_block() == false) cx++;
+				}
+				if (e.key.code == Keyboard::Right)
+				{
+					cx++;
+					if (check_block() == false) cx--;
+				}
+				if (e.key.code == Keyboard::Up)
+				{
+					rotate();
+					if (check_block() == false) { rotate(), rotate(), rotate(); }
+				}
+				if (e.key.code == Keyboard::Down)
+				{
+					go_down();
+				}
+				if (e.key.code == Keyboard::Space)
+				{
+					while (go_down() == true);
+				}
+			}
+		}
+
+		window.clear();
+		auto draw_block = [&]()
+		{
+			cell.setFillColor(color_map[kind]);
+			for (int y = 0; y < 4; y++)for (int x = 0; x < 4; x++)
+				if (block[kind][y][x])
+				{
+					cell.setPosition(Vector2f((cx + x)*cell_size, (cy + y)*cell_size));
+					window.draw(cell);
+				}
+		};
+		draw_block();
+		auto draw_world = [&]()
+		{
+			for (int y = 0; y < h_cnt; y++)for (int x = 0; x < w_cnt; x++)
+				if (world[y][x])
+				{
+					cell.setFillColor(color_map[world[y][x] - 1]);
+					cell.setPosition(Vector2f(x*cell_size, y*cell_size));
+					window.draw(cell);
+				}
+		};
+		draw_world();
+		window.display();
+	}
+	return 0;
 }
